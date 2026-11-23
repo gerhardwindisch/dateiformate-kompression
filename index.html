@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light">
+  <meta name="description" content="Interaktives Kompressions-Labor: Dateiformate-Quiz und Lauflängencodierung selbst ausprobieren.">
+  <title>Kompressions-Labor | Dateiformate & RLE</title>
+  <style>
+    :root {
+      --ink: #17243b;
+      --ink-muted: #657287;
+      --bg: #f4f6fb;
+      --card: #ffffff;
+      --line: #e3e9f2;
+      --purple: #6447e8;
+      --purple-light: #f0edff;
+      --teal: #159f91;
+      --teal-light: #e6f7f4;
+      --good: #157e5b;
+      --good-bg: #e9f7f0;
+      --bad: #b0453b;
+      --bad-bg: #fff0eb;
+      --shadow: 0 20px 52px rgba(35, 49, 83, 0.08);
+      font-synthesis: none;
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 10% 9%, rgba(100, 71, 232, .09), transparent 28%),
+        radial-gradient(circle at 90% 14%, rgba(21, 159, 145, .10), transparent 24%),
+        var(--bg);
+      font: 15px/1.55 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    button, input { font: inherit; }
+    button { cursor: pointer; }
+    button:focus-visible, input:focus-visible { outline: 3px solid rgba(100, 71, 232, .40); outline-offset: 3px; }
+    button:disabled { cursor: default; }
+    .shell { max-width: 1240px; margin: 0 auto; padding: 30px 26px 36px; }
+    .hero {
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 30px;
+      padding: 33px 42px;
+      color: #fff;
+      background: linear-gradient(115deg, #18254c 0%, #243675 60%, #3c348a 100%);
+      border-radius: 27px;
+      box-shadow: 0 18px 46px rgba(27, 42, 100, .18);
+    }
+    .hero::after {
+      position: absolute;
+      content: "";
+      width: 380px;
+      height: 380px;
+      right: -140px;
+      top: -205px;
+      border: 1px solid rgba(255, 255, 255, .15);
+      border-radius: 50%;
+      box-shadow: 0 0 0 52px rgba(255,255,255,.035), 0 0 0 110px rgba(255,255,255,.025);
+      pointer-events: none;
+    }
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      border: 1px solid rgba(255, 255, 255, .22);
+      border-radius: 99px;
+      color: #dfe7ff;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .085em;
+      text-transform: uppercase;
+      background: rgba(255, 255, 255, .07);
+    }
+    .eyebrow .dot { width: 7px; height: 7px; background: #5fe1ca; border-radius: 50%; }
+    h1 { margin: 13px 0 8px; font-size: clamp(27px, 3.5vw, 40px); line-height: 1.15; letter-spacing: -.045em; }
+    .hero p { max-width: 605px; margin: 0; color: #d2dcf7; font-size: 14px; }
+    .hero-visual { flex: 0 0 244px; position: relative; z-index: 1; }
+    .hero-flow { display: flex; align-items: center; gap: 10px; justify-content: center; }
+    .hero-blocks { display: flex; gap: 5px; padding: 11px; background: rgba(255, 255, 255, .10); border: 1px solid rgba(255,255,255,.15); border-radius: 13px; }
+    .hero-blocks i { width: 19px; height: 32px; display: block; border-radius: 5px; background: #99a9ff; }
+    .hero-blocks i:nth-child(n+4) { background: #61ddc9; }
+    .hero-arrow { color: #c8d2f7; font-size: 22px; font-weight: 700; }
+    .hero-result { padding: 14px 12px; background: rgba(95, 225, 202, .17); border: 1px solid rgba(95, 225, 202, .45); border-radius: 13px; white-space: nowrap; color: #9af8e8; font-weight: 800; letter-spacing: .04em; }
+    .hero-caption { font-size: 11px; color: #bfcaef; text-align: center; margin-top: 8px; }
+    .intro { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin: 27px 1px 19px; }
+    .intro h2 { margin: 0; font-size: 20px; letter-spacing: -.025em; }
+    .intro p { margin: 2px 0 0; color: var(--ink-muted); font-size: 13px; }
+    .intro-note { color: #5c6480; font-size: 12px; padding: 8px 12px; background: #e9edfa; border-radius: 100px; font-weight: 650; }
+    .grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; gap: 22px; }
+    .panel { min-width: 0; background: var(--card); border: 1px solid var(--line); border-radius: 22px; box-shadow: var(--shadow); overflow: hidden; }
+    .panel-top { padding: 26px 29px 18px; border-bottom: 1px solid #edf0f6; }
+    .panel-label { display: inline-flex; align-items: center; gap: 7px; margin-bottom: 11px; font-size: 11px; letter-spacing: .08em; font-weight: 850; text-transform: uppercase; }
+    .panel-label svg { width: 16px; height: 16px; }
+    .panel-label.purple { color: var(--purple); }
+    .panel-label.teal { color: #098e80; }
+    .panel-title { font-size: 23px; margin: 0 0 5px; letter-spacing: -.035em; line-height: 1.2; }
+    .panel-desc { color: var(--ink-muted); margin: 0; font-size: 13px; }
+    .panel-body { padding: 23px 29px 29px; }
+    .quiz-overview { display: flex; justify-content: space-between; align-items: center; color: var(--ink-muted); font-size: 12px; font-weight: 700; margin-bottom: 11px; }
+    #quizScore { color: var(--purple); }
+    .progress { width: 100%; height: 7px; background: #ecebfa; border-radius: 50px; overflow: hidden; margin-bottom: 24px; }
+    .progress > div { width: 0%; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #7760ee, #aa8df6); transition: width .35s ease; }
+    .question-type { font-size: 11px; font-weight: 850; text-transform: uppercase; letter-spacing: .09em; color: #8882b5; margin-bottom: 6px; }
+    .question { min-height: 58px; font-size: 19px; line-height: 1.35; font-weight: 800; letter-spacing: -.025em; margin: 0 0 20px; }
+    .answers { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px; }
+    .answer {
+      position: relative; text-align: left; min-height: 69px; padding: 14px 14px 13px;
+      color: #27324e; background: #f9faff; border: 1.5px solid #e3e8f3;
+      border-radius: 13px; transition: background .18s, border-color .18s, transform .18s;
+    }
+    .answer:not(:disabled):hover { background: #f0edff; border-color: #b1a6f9; transform: translateY(-1px); }
+    .answer strong { display: block; font-size: 17px; letter-spacing: -.015em; }
+    .answer small { display: block; color: #78849a; font-size: 11px; margin-top: 1px; }
+    .answer.correct { border-color: #55c49b; background: #ebfaf3; }
+    .answer.incorrect { border-color: #e6a198; background: #fff1ed; }
+    .answer.was-answered:not(.correct):not(.incorrect) { opacity: .59; }
+    .answer.correct::after, .answer.incorrect::after { content: "✓"; position: absolute; right: 11px; top: 10px; color: var(--good); font-weight: 900; font-size: 17px; }
+    .answer.incorrect::after { content: "✕"; color: var(--bad); }
+    .feedback { margin-top: 17px; border-radius: 13px; padding: 14px 16px; font-size: 13px; border: 1px solid transparent; }
+    .feedback[hidden], .primary[hidden], .quiz-complete[hidden] { display: none; }
+    .feedback strong { display: block; font-size: 13px; margin-bottom: 3px; }
+    .feedback.success { color: #195d49; border-color: #c6ead8; background: var(--good-bg); }
+    .feedback.error { color: #97483c; border-color: #f5d3c7; background: var(--bad-bg); }
+    .primary { width: 100%; margin-top: 18px; min-height: 45px; border-radius: 11px; padding: 10px 16px; color: #fff; border: 0; background: var(--purple); font-weight: 800; box-shadow: 0 7px 15px rgba(100, 71, 232, .17); }
+    .primary:hover { background: #5436d8; }
+    .quiz-complete { text-align: center; padding: 21px 3px 8px; }
+    .complete-icon { width: 62px; height: 62px; display: grid; place-items: center; margin: 0 auto 15px; color: #fff; background: var(--purple); border-radius: 18px; font-size: 29px; }
+    .quiz-complete h3 { font-size: 22px; letter-spacing: -.03em; margin: 0 0 8px; }
+    .quiz-complete p { color: var(--ink-muted); font-size: 14px; margin: 0; }
+    .label-row { display:flex; align-items:center; justify-content: space-between; gap: 10px; margin-bottom: 9px; }
+    .field-label { font-weight: 800; font-size: 13px; }
+    .mini-caption { font-size: 11px; color: #8791a3; }
+    .text-input { width: 100%; padding: 15px 16px; border: 1.5px solid #dce4ef; border-radius: 12px; outline: 0; color: #1a2b47; background: #fcfdff; font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace; font-size: 17px; font-weight: 800; letter-spacing: .065em; transition: border-color .2s, box-shadow .2s; }
+    .text-input:focus { border-color: #6aafe7; box-shadow: 0 0 0 4px rgba(48, 157, 204, .12); }
+    .input-help { min-height: 19px; margin-top: 7px; color: var(--ink-muted); font-size: 11px; }
+    .samples { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin-top: 14px; }
+    .samples > span { color: #7a8597; font-size: 11px; margin-right: 2px; }
+    .sample { border: 1px solid #dfe5ee; background: #f9fafc; padding: 5px 10px; border-radius: 99px; font-size: 11px; font-weight: 750; color: #4a5a73; }
+    .sample:hover { color: #087c73; border-color: #91d8ce; background: #f0fbf9; }
+    .rle-section { margin-top: 22px; }
+    .section-heading { display: flex; justify-content: space-between; gap: 10px; align-items: center; font-size: 12px; font-weight: 850; margin-bottom: 10px; }
+    .section-heading span { color: #9aa3b4; font-size: 11px; font-weight: 500; }
+    .runs { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; min-height: 57px; padding: 12px; border: 1px dashed #d8deea; border-radius: 13px; background: #fcfdff; }
+    .run { display: inline-flex; align-items: center; gap: 4px; padding: 5px 9px; border-radius: 8px; background: var(--purple-light); color: #5a43bb; font-size: 12px; font-weight: 850; font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace; }
+    .run:nth-child(3n+2) { color: #087c70; background: #e5f7f2; }
+    .run:nth-child(3n) { color: #aa6131; background: #fff0df; }
+    .run b { opacity: .6; font-size: 11px; }
+    .empty { font-size: 12px; color: #8d96a7; }
+    .code-output { display: flex; align-items: center; gap: 12px; min-height: 56px; border: 1px solid #bee4de; background: #effaf8; color: #0e7269; padding: 12px 14px; border-radius: 13px; }
+    .code-output code { min-width: 0; overflow-wrap: anywhere; font-size: 16px; line-height: 1.4; font-weight: 850; font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace; }
+    .code-output svg { flex: 0 0 auto; }
+    .metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 23px; }
+    .metric { padding: 14px 13px 12px; border-radius: 13px; border: 1px solid #e6ebf4; background: #f9faff; }
+    .metric .metric-label { display: block; font-size: 11px; font-weight: 750; color: #7b8799; margin-bottom: 4px; }
+    .metric strong { display: block; font-size: clamp(17px, 2.3vw, 24px); line-height: 1.1; font-weight: 850; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+    .metric small { display: block; color: #8591a3; font-size: 10px; margin-top: 5px; }
+    .metric.highlight { background: var(--teal-light); border-color: #c6ece5; }
+    .metric.highlight strong { color: #07897b; }
+    .metric.highlight.negative { background: var(--bad-bg); border-color: #f2d0c7; }
+    .metric.highlight.negative strong { color: var(--bad); }
+    .metric.highlight.neutral { background: #f2f4f8; border-color: #e3e8ef; }
+    .metric.highlight.neutral strong { color: var(--ink-muted); }
+    .bars { margin-top: 19px; display: grid; gap: 9px; }
+    .bar-row { display: grid; grid-template-columns: 82px minmax(0, 1fr) 53px; align-items: center; gap: 9px; font-size: 11px; font-weight: 750; color: #657187; }
+    .bar-track { height: 12px; background: #eaeef5; border-radius: 99px; overflow: hidden; }
+    .bar-fill { height: 100%; width: 0%; border-radius: inherit; background: #8173f2; transition: width .4s ease; }
+    .bar-fill.compressed { background: #21b5a0; }
+    .bar-row output { font-size: 11px; text-align: right; font-variant-numeric: tabular-nums; }
+    .takeaway { display: flex; align-items: start; gap: 9px; margin-top: 18px; padding: 11px 12px; border-radius: 11px; background: #f3f7fc; color: #536479; font-size: 12px; }
+    .takeaway svg { flex: 0 0 auto; margin-top: 1px; color: #5070b8; }
+    .info-bottom { display: flex; gap: 10px; align-items: flex-start; margin-top: 20px; padding: 14px 17px; color: #657286; background: #eaf0f7; border: 1px solid #e1e8f1; border-radius: 14px; font-size: 12px; }
+    .info-bottom svg { flex: 0 0 auto; margin-top: 1px; color: #6b7c97; }
+    footer { text-align: center; color: #93a0b2; padding-top: 23px; font-size: 11px; }
+    @media (max-width: 900px) {
+      .grid { grid-template-columns: 1fr; }
+      .hero { padding: 30px 32px; }
+      .hero-visual { flex-basis: 210px; }
+    }
+    @media (max-width: 590px) {
+      .shell { padding: 14px 13px 25px; }
+      .hero { padding: 28px 24px; border-radius: 20px; }
+      .hero-visual { display: none; }
+      .intro { margin: 22px 2px 15px; }
+      .intro-note { display: none; }
+      .panel { border-radius: 17px; }
+      .panel-top { padding: 22px 20px 17px; }
+      .panel-body { padding: 21px 20px 24px; }
+      .panel-title { font-size: 21px; }
+      .question { font-size: 18px; min-height: auto; }
+      .answer { min-height: 62px; }
+      .answer strong { font-size: 16px; }
+      .metrics { gap: 7px; }
+      .metric { padding: 12px 9px; }
+      .metric strong { font-size: 19px; }
+      .bar-row { grid-template-columns: 74px minmax(0, 1fr) 44px; }
+    }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; } }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="hero">
+      <div>
+        <div class="eyebrow"><span class="dot"></span> Digitales Lernlabor</div>
+        <h1>Kompressions-Labor<span style="color:#6ce1d4">.</span></h1>
+        <p>Welche Dateiformate sind sinnvoll? Und wie kann aus vielen Zeichen eine kürzere Zeichenfolge werden? Finde es selbst heraus.</p>
+      </div>
+      <div class="hero-visual" aria-hidden="true">
+        <div class="hero-flow">
+          <div class="hero-blocks"><i></i><i></i><i></i><i></i><i></i></div>
+          <span class="hero-arrow">→</span>
+          <div class="hero-result">3A2B</div>
+        </div>
+        <div class="hero-caption">Wiederholungen erkennen. Daten verkürzen.</div>
+      </div>
+    </header>
+
+    <div class="intro">
+      <div><h2>Entdecken & ausprobieren</h2><p>Zwei kurze Stationen – direkt im Browser, ganz ohne Anmeldung.</p></div>
+      <span class="intro-note">✦ Interaktiv · Offline nutzbar</span>
+    </div>
+
+    <div class="grid">
+      <section class="panel" aria-labelledby="quizHeading">
+        <div class="panel-top">
+          <div class="panel-label purple">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="m8 12 3 3 5-6"/></svg>
+            Station 01 · Wissen testen
+          </div>
+          <h2 class="panel-title" id="quizHeading">Dateiformate-Quiz</h2>
+          <p class="panel-desc">Wähle für jede Situation das passende Format. Du erhältst sofort eine Erklärung.</p>
+        </div>
+        <div class="panel-body">
+          <div class="quiz-overview"><span id="quizProgressLabel">Frage 1 von 7</span><span id="quizScore">0 Punkte</span></div>
+          <div class="progress" role="progressbar" aria-label="Quizfortschritt" aria-valuemin="0" aria-valuemax="7" aria-valuenow="0" id="progressbar"><div id="progressFill"></div></div>
+          <div id="quizQuestionArea">
+            <div class="question-type" id="questionCategory">Dateiformat wählen</div>
+            <h3 class="question" id="questionText"></h3>
+            <div class="answers" id="answerOptions" role="group" aria-label="Antwortmöglichkeiten"></div>
+            <div class="feedback" id="quizFeedback" aria-live="polite" hidden></div>
+            <button class="primary" id="nextBtn" type="button" hidden>Nächste Frage <span aria-hidden="true">→</span></button>
+          </div>
+          <div id="quizComplete" class="quiz-complete" hidden aria-live="polite">
+            <div class="complete-icon" aria-hidden="true">★</div>
+            <h3 id="finalTitle">Quiz abgeschlossen!</h3>
+            <p id="finalText"></p>
+            <button class="primary" id="restartBtn" type="button">Quiz erneut starten ↻</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="rleHeading">
+        <div class="panel-top">
+          <div class="panel-label teal">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M7 9h4M7 13h7M16 9h1"/></svg>
+            Station 02 · Selbst experimentieren
+          </div>
+          <h2 class="panel-title" id="rleHeading">Lauflängencodierung (RLE)</h2>
+          <p class="panel-desc">Aufeinanderfolgende gleiche Zeichen werden durch ihre Anzahl und das Zeichen ersetzt.</p>
+        </div>
+        <div class="panel-body">
+          <div class="label-row"><label for="rleInput" class="field-label">Deine Zeichenfolge</label><span class="mini-caption" id="inputCounter">0 / 120</span></div>
+          <input class="text-input" id="rleInput" type="text" maxlength="120" value="AAAAAAAABBBBBCCCCCCDD" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-describedby="inputHelp">
+          <div class="input-help" id="inputHelp">Nur Buchstaben A–Z, ohne Leerzeichen. Die Berechnung aktualisiert sich sofort.</div>
+          <div class="samples">
+            <span>Beispiele:</span>
+            <button type="button" class="sample" data-example="AAAAAAAABBBBBCCCCCCDD">Viele Wiederholungen</button>
+            <button type="button" class="sample" data-example="ABCDABCDABCD">Kaum Wiederholungen</button>
+            <button type="button" class="sample" data-example="AAAAAAAAAAAABBBBBBBBBBCCCC">Lange Blöcke</button>
+          </div>
+
+          <div class="rle-section">
+            <div class="section-heading">1. Gleiche Zeichen zusammenfassen <span>Anzahl × Zeichen</span></div>
+            <div class="runs" id="rleRuns" aria-live="polite"></div>
+          </div>
+          <div class="rle-section">
+            <div class="section-heading">2. Komprimiertes Ergebnis <span>z. B. AAAAB → 4A1B</span></div>
+            <div class="code-output" aria-live="polite">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/><path d="M4 12h11"/></svg>
+              <code id="rleOutput">–</code>
+            </div>
+          </div>
+          <div class="metrics" aria-live="polite">
+            <div class="metric"><span class="metric-label">Original</span><strong id="originalSize">0</strong><small>Byte</small></div>
+            <div class="metric"><span class="metric-label">Komprimiert</span><strong id="compressedSize">0</strong><small>Byte</small></div>
+            <div class="metric highlight" id="savingCard"><span class="metric-label" id="savingLabel">Ersparnis</span><strong id="savingValue">0 %</strong><small id="savingBytes">0 Byte weniger</small></div>
+          </div>
+          <div class="bars" aria-label="Vergleich der Datengrößen">
+            <div class="bar-row"><label for="originalBar">Original</label><div class="bar-track"><div class="bar-fill" id="originalBar"></div></div><output id="originalBarText">0 B</output></div>
+            <div class="bar-row"><label for="compressedBar">RLE-Code</label><div class="bar-track"><div class="bar-fill compressed" id="compressedBar"></div></div><output id="compressedBarText">0 B</output></div>
+          </div>
+          <div class="takeaway" id="rleInsight" aria-live="polite">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 11v5M12 7h.01"/></svg>
+            <span id="insightText"></span>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <aside class="info-bottom" aria-label="Information zur Simulation">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+      <span><strong>Gut zu wissen:</strong> Dies ist ein vereinfachtes Lernmodell. Es erlaubt nur A–Z, sodass jedes Originalzeichen genau 1 Byte benötigt. Beim RLE-Code zählt jede Ziffer und jeder Buchstabe ebenfalls als 1 Byte (z. B. <strong>12A</strong> = 3 Byte). Lange Wiederholungen bringen Ersparnis, kurze können den Text sogar vergrößern. RLE ist verlustfrei; reale Kompressionsverfahren sind oft komplexer.</span>
+    </aside>
+    <footer>Kompressions-Labor · Interaktive Lernanwendung für die Oberstufe · HTML, CSS & JavaScript</footer>
+  </main>
+
+  <script>
+    "use strict";
+
+    // Jede Frage besitzt genau eine richtige Lösung und eine kurze Erklärung.
+    const questions = [
+      {
+        category: "Bilder im Internet",
+        question: "Du möchtest ein Foto möglichst platzsparend auf einer Webseite veröffentlichen. Welches Format passt?",
+        answer: "JPEG",
+        explanation: "JPEG komprimiert Fotos sehr effizient, allerdings verlustbehaftet. Für Fotos ist es meist eine gute Wahl.",
+        options: ["PNG", "JPEG", "SVG", "WAV"]
+      },
+      {
+        category: "Grafiken & Logos",
+        question: "Ein einfaches Logo aus Linien und Formen soll in jeder Größe scharf bleiben. Was wählst du?",
+        answer: "SVG",
+        explanation: "SVG speichert Formen als Vektoren. Dadurch bleibt ein Logo beim Vergrößern scharf.",
+        options: ["JPEG", "MP3", "SVG", "TXT"]
+      },
+      {
+        category: "Screenshots",
+        question: "Ein Screenshot mit kleinen Schriften soll ohne Qualitätsverlust gespeichert werden. Welches Format ist geeignet?",
+        answer: "PNG",
+        explanation: "PNG komprimiert verlustfrei und erhält scharfe Schriften und klare Kanten.",
+        options: ["JPEG", "MP3", "PNG", "WAV"]
+      },
+      {
+        category: "Musik",
+        question: "Du möchtest ein Musikstück archivieren, ohne Audiodaten durch die Komprimierung zu verlieren. Welches Format passt?",
+        answer: "FLAC",
+        explanation: "FLAC komprimiert Audiodaten verlustfrei. MP3 spart oft mehr Platz, entfernt aber Informationen.",
+        options: ["MP3", "FLAC", "GIF", "JPEG"]
+      },
+      {
+        category: "Audio unterwegs",
+        question: "Du willst Musik in einer relativ kleinen Datei speichern und akzeptierst Qualitätsverluste. Was ist sinnvoll?",
+        answer: "MP3",
+        explanation: "MP3 nutzt verlustbehaftete Audiokomprimierung und ist für kleine Musikdateien geeignet.",
+        options: ["BMP", "WAV", "SVG", "MP3"]
+      },
+      {
+        category: "Dokumente",
+        question: "Ein Arbeitsblatt soll auf unterschiedlichen Geräten mit gleichem Layout angezeigt und gedruckt werden. Welches Format?",
+        answer: "PDF",
+        explanation: "PDF bewahrt das Dokumentlayout über verschiedene Geräte und Programme hinweg.",
+        options: ["TXT", "PDF", "JPEG", "MP3"]
+      },
+      {
+        category: "Dateien bündeln",
+        question: "Du möchtest mehrere Ordner und Dateien gesammelt und möglichst platzsparend weitergeben. Welches Format?",
+        answer: "ZIP",
+        explanation: "ZIP bündelt Dateien in einem Archiv und kann sie dabei ohne Informationsverlust komprimieren.",
+        options: ["PNG", "MP4", "ZIP", "WAV"]
+      }
+    ];
+
+    const $ = (id) => document.getElementById(id);
+    let questionIndex = 0;
+    let points = 0;
+    let answered = false;
+
+    function renderQuestion() {
+      const q = questions[questionIndex];
+      answered = false;
+      $("quizQuestionArea").hidden = false;
+      $("quizComplete").hidden = true;
+      $("quizFeedback").hidden = true;
+      $("quizFeedback").className = "feedback";
+      $("nextBtn").hidden = true;
+      $("quizProgressLabel").textContent = `Frage ${questionIndex + 1} von ${questions.length}`;
+      $("quizScore").textContent = `${points} ${points === 1 ? "Punkt" : "Punkte"}`;
+      $("progressFill").style.width = `${(questionIndex / questions.length) * 100}%`;
+      $("progressbar").setAttribute("aria-valuenow", questionIndex);
+      $("questionCategory").textContent = q.category;
+      $("questionText").textContent = q.question;
+      const options = $("answerOptions");
+      options.replaceChildren();
+      q.options.forEach((format) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "answer";
+        const label = document.createElement("strong");
+        label.textContent = format;
+        const hint = document.createElement("small");
+        hint.textContent = "Auswählen";
+        button.append(label, hint);
+        button.addEventListener("click", () => chooseAnswer(button, format));
+        options.append(button);
+      });
+      $("nextBtn").textContent = questionIndex === questions.length - 1 ? "Ergebnis ansehen →" : "Nächste Frage →";
+    }
+
+    function chooseAnswer(selectedButton, format) {
+      if (answered) return;
+      answered = true;
+      const q = questions[questionIndex];
+      const isCorrect = format === q.answer;
+      if (isCorrect) points++;
+      for (const button of $("answerOptions").querySelectorAll("button")) {
+        button.disabled = true;
+        button.classList.add("was-answered");
+        const value = button.querySelector("strong").textContent;
+        button.querySelector("small").textContent = value === q.answer ? "Richtige Antwort" : value === format ? "Deine Antwort" : "";
+        if (value === q.answer) button.classList.add("correct");
+        if (button === selectedButton && !isCorrect) button.classList.add("incorrect");
+      }
+      const box = $("quizFeedback");
+      box.className = `feedback ${isCorrect ? "success" : "error"}`;
+      box.replaceChildren();
+      const headline = document.createElement("strong");
+      headline.textContent = isCorrect ? "✓ Richtig gewählt!" : `✕ Nicht ganz – richtig wäre ${q.answer}.`;
+      const detail = document.createElement("span");
+      detail.textContent = q.explanation;
+      box.append(headline, detail);
+      box.hidden = false;
+      $("nextBtn").hidden = false;
+      $("quizScore").textContent = `${points} ${points === 1 ? "Punkt" : "Punkte"}`;
+      $("progressFill").style.width = `${((questionIndex + 1) / questions.length) * 100}%`;
+      $("progressbar").setAttribute("aria-valuenow", questionIndex + 1);
+    }
+
+    $("nextBtn").addEventListener("click", () => {
+      if (!answered) return;
+      if (questionIndex < questions.length - 1) {
+        questionIndex++;
+        renderQuestion();
+      } else {
+        $("quizQuestionArea").hidden = true;
+        $("quizComplete").hidden = false;
+        $("quizProgressLabel").textContent = "Alle Fragen beantwortet";
+        $("finalTitle").textContent = points === questions.length ? "Perfekt gelöst!" : "Quiz abgeschlossen!";
+        $("finalText").textContent = `Du hast ${points} von ${questions.length} Fragen richtig beantwortet. ${points === questions.length ? "Du kennst dich mit Dateiformaten schon richtig gut aus!" : "Starte das Quiz erneut und verbessere dein Ergebnis!"}`;
+      }
+    });
+    $("restartBtn").addEventListener("click", () => {
+      questionIndex = 0;
+      points = 0;
+      renderQuestion();
+    });
+
+    // Vereinfachtes RLE: Da nur A-Z erlaubt sind, ist die Verkettung von
+    // Anzahl und Buchstabe eindeutig lesbar, z. B. AAAAAAAAAAAA -> 12A.
+    function encodeRLE(value) {
+      if (!value) return { encoded: "", runs: [] };
+      const runs = [];
+      let current = value[0];
+      let count = 1;
+      for (let i = 1; i < value.length; i++) {
+        if (value[i] === current) count++;
+        else {
+          runs.push({ symbol: current, count });
+          current = value[i];
+          count = 1;
+        }
+      }
+      runs.push({ symbol: current, count });
+      return { encoded: runs.map(({ symbol, count }) => `${count}${symbol}`).join(""), runs };
+    }
+
+    function updateSimulation() {
+      const input = $("rleInput");
+      const clean = input.value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 120);
+      if (input.value !== clean) input.value = clean;
+      $("inputCounter").textContent = `${clean.length} / 120`;
+      const { encoded, runs } = encodeRLE(clean);
+      const originalBytes = clean.length;
+      const compressedBytes = encoded.length;
+      const difference = originalBytes - compressedBytes;
+      const percent = originalBytes ? (Math.abs(difference) / originalBytes) * 100 : 0;
+      const percentLabel = new Intl.NumberFormat("de-AT", { maximumFractionDigits: 1 }).format(percent);
+
+      const group = $("rleRuns");
+      group.replaceChildren();
+      if (!runs.length) {
+        const empty = document.createElement("span");
+        empty.className = "empty";
+        empty.textContent = "Gib oben eine Zeichenfolge ein …";
+        group.append(empty);
+      } else {
+        for (const { symbol, count } of runs) {
+          const chip = document.createElement("span");
+          chip.className = "run";
+          const times = document.createElement("b");
+          times.textContent = "×";
+          chip.append(document.createTextNode(String(count)), times, document.createTextNode(symbol));
+          chip.setAttribute("aria-label", `${count} mal ${symbol}`);
+          group.append(chip);
+        }
+      }
+      $("rleOutput").textContent = encoded || "–";
+      $("originalSize").textContent = String(originalBytes);
+      $("compressedSize").textContent = String(compressedBytes);
+      const savingCard = $("savingCard");
+      savingCard.classList.toggle("negative", difference < 0);
+      savingCard.classList.toggle("neutral", difference === 0);
+      $("savingLabel").textContent = difference < 0 ? "Mehrbedarf" : difference > 0 ? "Ersparnis" : "Veränderung";
+      $("savingValue").textContent = `${percentLabel} %`;
+      $("savingBytes").textContent = difference < 0 ? `${Math.abs(difference)} Byte mehr` : difference > 0 ? `${difference} Byte weniger` : "Gleich groß";
+
+      const maxSize = Math.max(originalBytes, compressedBytes, 1);
+      $("originalBar").style.width = `${(originalBytes / maxSize) * 100}%`;
+      $("compressedBar").style.width = `${(compressedBytes / maxSize) * 100}%`;
+      $("originalBarText").textContent = `${originalBytes} B`;
+      $("compressedBarText").textContent = `${compressedBytes} B`;
+
+      let insight;
+      if (!clean) insight = "Probiere aus, wie sich die Größe bei langen und kurzen Wiederholungen verändert.";
+      else if (difference > 0) insight = "Die Komprimierung lohnt sich: Lange Wiederholungen benötigen im RLE-Code weniger Platz.";
+      else if (difference < 0) insight = "Hier wird der Code größer! Bei kurzen oder wechselnden Zeichenfolgen kostet die Anzahl zusätzliche Zeichen.";
+      else insight = "Hier sind Original und RLE-Code gleich groß. Probiere längere Wiederholungen aus!";
+      $("insightText").textContent = insight;
+    }
+
+    $("rleInput").addEventListener("input", updateSimulation);
+    for (const sample of document.querySelectorAll("[data-example]")) {
+      sample.addEventListener("click", () => {
+        $("rleInput").value = sample.dataset.example;
+        updateSimulation();
+        $("rleInput").focus();
+      });
+    }
+
+    renderQuestion();
+    updateSimulation();
+  </script>
+</body>
+</html>
